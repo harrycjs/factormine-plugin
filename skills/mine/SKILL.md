@@ -52,15 +52,16 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 - 状态写入口（唯一）：`uv run python tools/state.py {init|show|next-id|set-stage|set|record-event|resolve|list} ...`
 - 门禁判定：`uv run python tools/check_gates.py <id> --stage <stage> [--assert-done] [--record]`
 - 沉淀辅助：`uv run python tools/factor_archiver.py {approve|reject|failure|lesson-update} <id> ...`
-- 4 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-coder` / `factor-evaluator` / `factor-archivist`
+- 5 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-validator` / `factor-coder` / `factor-evaluator` / `factor-archivist`
 
 **STAGE_ORDER（写死在 tools/state.py，不得改名）**：
-`propose → design → implement → evaluate → review → archive`
+`propose → validation → design → implement → evaluate → review → archive`
 
 | 当前 stage | 前置断言的 prev | 出口门禁 |
 |-----------|----------------|---------|
 | propose | （首阶段，跳过前置断言） | G-PR |
-| design | propose | G-DS |
+| validation | propose | G-VD |
+| design | validation | G-DS |
 | implement | design | G-IM |
 | evaluate | implement | G-EV |
 | review | evaluate | G-RV |
@@ -83,7 +84,10 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 1. **未初始化引导**（形态 B）：cwd 无 `.mine.json` 且无 `tools/state.py`（即不是本仓库直跑）→ 先走 3.0 setup 再回本分支。
 2. 定 `<id>`：`uv run python tools/state.py next-id --slug <slug>` → 得 `fNNN_<slug>`（NNN 三位顺序号；slug 由"方向"参数 snake_case 化或中文语义短名翻译）。定稿后**立即告知用户**：「本轮编号 fNNN（factor_id=`fNNN_slug`），之后 `/mine continue fNNN` 即可续跑」。
 3. 走 **propose 执行卡**（`stages/propose.md`）：**前置必读失败教训** → 派 `factor-proposer` → 过 G-PR。
-4. propose 完成后按第四节主循环协议逐 stage 推进。
+4. 走 **validation 执行卡**（`stages/validation.md`）：派 `factor-validator` 验证方案完整性 → 过 G-VD。
+   - 若 validation FAIL → 驳回给 proposer 补充（回到 propose，attempts +1）
+   - 若 validation PASS → 继续 design
+5. propose + validation 完成后按第四节主循环协议逐 stage 推进。
 
 ### 3.2 `continue <id>`（断点续跑）
 
@@ -103,7 +107,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 
 - 有 `id`：先 resolve（见三节头部）再 `uv run python tools/state.py show <完整id>`。
 - 无 `id`：`ls workspace/` 列出全部 factor_id，对每个跑一次 `state.py show` 摘要，**按编号排序制表呈现**：`编号 | factor_id | 方向 | 状态 | 当前 stage`。
-- **呈现约定**：show 原始输出之外，用中文进度摘要转述——6 阶段用人话（提出候选→设计公式→实现回测→全量评估→人工审查→入库沉淀），标注当前所处位置与完成比例；门禁/意见代号（G-XX）只括注不打头，正文讲清楚它是什么检查、结论如何。
+- **呈现约定**：show 原始输出之外，用中文进度摘要转述——7 阶段用人话（提出候选→验证方案→设计公式→实现回测→全量评估→自动决策→入库沉淀），标注当前所处位置与完成比例；门禁/意见代号（G-XX）只括注不打头，正文讲清楚它是什么检查、结论如何。
 
 ### 3.4 `accept <id>`（手动确认通过，通常由自动决策触发）
 
@@ -198,11 +202,56 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 
 ---
 
-## 七、自动决策逻辑（review 阶段）
+## 七、方案验证闸门（validation 阶段）
+
+**validation 阶段在 propose 之后、design 之前**，用于验证 proposer 的方案是否完整、清晰、可执行。
+
+### 7.1 验证维度
+
+**factor-validator 会检查以下 4 个维度**：
+
+1. **声明完整性**：
+   - 因子定义、预期方向、因子方向声明、回测频率、频率选择理由
+   - 分类标签、数据可用性自检、失败教训逐条引用
+   - 已知因子撞库声明、可行性自查 F-1 ~ F-9、与已入库因子差异
+
+2. **逻辑一致性**：
+   - 因子定义与方向一致
+   - 数据依赖与 data_catalog 一致
+   - 参数与 param_card.yaml 一致
+   - 频率与因子特性匹配
+
+3. **可执行性**：
+   - 数据可用性（无 missing）
+   - 计算复杂度合理
+   - 参数值在合理范围
+   - 无未来函数风险
+
+4. **唯一性**：
+   - 与已入库因子不雷同
+   - 与已知因子不雷同
+   - 不是纯形式变形
+
+### 7.2 验证结果
+
+- **PASS**：方案完整、逻辑清晰、可执行 → 继续 design
+- **FAIL**：有遗漏或歧义 → 驳回给 proposer 补充 → 重新验证
+
+### 7.3 驳回处理
+
+当 validation FAIL 时：
+1. 读取 `validation_result.md` 的 issues 列表
+2. 派 factor-proposer 针对每个 issue 补充声明或修正逻辑
+3. 重新派 factor-validator 验证
+4. 兜圈断路器：连续 3 次 FAIL → 强制 reject，建议换方向
+
+---
+
+## 八、自动决策逻辑（review 阶段）
 
 **核心原则**：review 阶段**自动决策，无需人工干预**。
 
-### 7.1 自动决策规则
+### 8.1 自动决策规则
 
 | verdict | 自动决策 | 后续动作 | 是否停止迭代 |
 |---------|---------|---------|-------------|
@@ -210,7 +259,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 | partial | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
 | fail | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
 
-### 7.2 自动 Accept 流程（verdict = pass）
+### 8.2 自动 Accept 流程（verdict = pass）
 
 1. 记录决策到 `workspace/{id}/review_decision.md`
 2. 派 `factor-archivist` 走 approve 分支（入库）
@@ -218,7 +267,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 4. **停止迭代**：不再调用 `next-iteration`
 5. 打印成功摘要，告诉用户"已找到有效因子，无需继续迭代"
 
-### 7.3 自动 Reject 流程（verdict = partial / fail）
+### 8.3 自动 Reject 流程（verdict = partial / fail）
 
 1. 记录决策到 `workspace/{id}/review_decision.md`
 2. 派 `factor-archivist` 走 reject 分支（归档 + 沉淀教训）
@@ -226,7 +275,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 4. **自动开下一轮**：调用 `state.py next-iteration <id>`
 5. 打印迭代摘要，直接推进到下一轮的 propose 阶段
 
-### 7.4 用户覆盖（可选）
+### 8.4 用户覆盖（可选）
 
 用户可以手动覆盖自动决策：
 - `/mine accept <id>`：手动 accept 一个 partial/fail 的因子（覆盖自动 reject）
@@ -234,7 +283,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 
 **但通常不需要**：自动决策已是最优路径。
 
-### 7.5 evaluate 阶段的职责
+### 8.5 evaluate 阶段的职责
 
 evaluate 阶段**不输出任何 accept/reject 建议**——评估只判定指标是否达标，不替用户拍板。达标仅意味着"值得考虑入因子库"，不入因子库也要走 reject 分支并沉淀教训（让后人知道"看起来达标但实际不可用"也是一种教训）。
 

@@ -177,6 +177,53 @@ def gate_propose(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, 
     return checks
 
 
+def gate_validation(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, str]]:
+    """validation 阶段：validation_result.md 存在 + verdict ∈ {pass, fail}。"""
+    spec_dir = workspace_root / factor_id / "spec"
+    vr = spec_dir / "validation_result.md"
+
+    checks: list[tuple[str, bool, str]] = []
+
+    # G-VD-1 validation_result.md 存在
+    checks.append((
+        "G-VD-1 validation_result.md 存在",
+        file_exists_min_size(vr),
+        str(vr),
+    ))
+
+    # G-VD-2 verdict ∈ {pass, fail}
+    verdict = None
+    if vr.is_file():
+        text = vr.read_text(encoding="utf-8")
+        # 提取 verdict: pass / fail
+        m = re.search(r"verdict:\s*(pass|fail)", text, re.IGNORECASE)
+        if m:
+            verdict = m.group(1).lower()
+    checks.append((
+        "G-VD-2 verdict ∈ {pass, fail}",
+        verdict in ("pass", "fail"),
+        f"verdict={verdict}",
+    ))
+
+    # G-VD-3 若 fail，issues 列表非空
+    if verdict == "fail" and vr.is_file():
+        text = vr.read_text(encoding="utf-8")
+        has_issues = "issues:" in text.lower() and "- [" in text
+        checks.append((
+            "G-VD-3 若 fail，issues 列表非空",
+            has_issues,
+            "issues found" if has_issues else "no issues",
+        ))
+    else:
+        checks.append((
+            "G-VD-3 若 fail，issues 列表非空",
+            True,  # pass 时跳过此检查
+            "verdict=pass, skip",
+        ))
+
+    return checks
+
+
 def _yaml_parseable(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -486,6 +533,7 @@ def gate_archive(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, 
 def run_gate(workspace_root: Path, factor_id: str, stage: str, record: bool = False) -> int:
     gate_funcs = {
         "propose": gate_propose,
+        "validation": gate_validation,
         "design": gate_design,
         "implement": gate_implement,
         "evaluate": gate_evaluate,

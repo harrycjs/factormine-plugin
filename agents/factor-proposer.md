@@ -37,11 +37,13 @@ color: blue
      - `long_positive`：因子值越大，预期未来收益越高（做多高因子组）
      - `long_negative`：因子值越大，预期未来收益越低（做多低因子组）
      - `long_short_both`：正向和反向都有经济含义，需双向评估
-   - **回测频率**（**必须明确指定**）：
-     - `monthly`：月度调仓（默认，适合中低频因子）
-     - `weekly`：周度调仓（适合高频因子）
+   - **回测频率**（**必须明确指定，默认 weekly**）：
+     - `weekly`：周度调仓（**默认**，适合大多数因子，平衡信号质量与交易成本）
+     - `monthly`：月度调仓（适合低频因子、信号衰减慢的因子）
      - `daily`：日度调仓（适合极高频因子，需注意换手率约束）
-     - 频率选择依据：数据频率、因子衰减速度、交易成本约束
+     - **频率选择理由**（**必须给出，否则主会话驳回**）：
+       - 为什么选这个频率？（数据频率、因子衰减速度、交易成本约束）
+       - 为什么不适合其他频率？（如选 weekly，说明为什么不选 monthly 或 daily）
    - **分类标签**：`market / fundamental / hybrid`，`trend / reversal / quality / value / volatility / liquidity / 其他`
    - **数据可用性自检**：按 data_catalog 标注字段 status（available / derive / missing）
    - **失败教训逐条回避声明**：「本因子刻意回避了以下失败模式：...」——**逐条引用每一条失败条目的 ID**（如 f003 / f007 / f012），说明本因子如何回避。**不是摘要，不止 ≥3 条——必须全部覆盖**
@@ -50,7 +52,7 @@ color: blue
    - **与已入库因子的差异声明**
 2. `workspace/{id}/spec/design_notes.md`——设计要点（计算复杂度 / 滚动窗口长度 / 中性化方案 / 频率选择理由 / 预期换手率）
 3. `workspace/{id}/spec/param_card.yaml`——参数卡（YAML 格式，所有数值参数化，必须包含以下字段）：
-   - `rebalance_frequency`：回测频率（`monthly` / `weekly` / `daily`，默认 `monthly`）
+   - `rebalance_frequency`：回测频率（`weekly` / `monthly` / `daily`，默认 `weekly`）
    - `factor_direction`：因子方向（`long_positive` / `long_negative` / `long_short_both`）
    - 其他数值参数（滚动窗口、窗口长度、阈值等）
 
@@ -77,7 +79,8 @@ color: blue
 - [ ] 因子公式中数据字段全部在 data_catalog 标注 status
 - [ ] 预期方向（值大→收益高/低）已明确
 - [ ] **因子方向声明已明确**：`long_positive` / `long_negative` / `long_short_both` 三选一
-- [ ] **回测频率已明确**：`monthly` / `weekly` / `daily` 三选一，并说明选择依据
+- [ ] **回测频率已明确**：`weekly`（默认）/ `monthly` / `daily` 三选一
+- [ ] **频率选择理由已给出**：必须说明为什么选这个频率，以及为什么不选其他频率
 - [ ] 分类标签已给出
 - [ ] 与已入库因子 INDEX 比对，无显著雷同
 - [ ] 参数已全部进 param_card.yaml（无遗漏数值）
