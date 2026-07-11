@@ -4,7 +4,7 @@ state.py — 状态写入口（factormine-plugin 唯一）
 本文件是 workspace/{id}/state.json 的**唯一写入口**。主会话专用，子 agent 一律不读写 state.json。
 
 STAGE_ORDER（写死，不得改名）：
-    propose → validation → design → implement → evaluate → review → archive
+    propose → validation → design → implement → code_review → evaluate → review → archive
 
 factor_id 格式：`fNNN_<slug>`（三位顺序号 + 语义短名），由 `next-id` 自动分配。
 状态机的 status 字段：running / paused_blocked / awaiting_review / done / done_rejected
@@ -23,7 +23,7 @@ from typing import Any, Optional
 # ---------------------------------------------------------------------------
 # STAGE_ORDER（写死）
 # ---------------------------------------------------------------------------
-STAGE_ORDER = ["propose", "validation", "design", "implement", "evaluate", "review", "archive"]
+STAGE_ORDER = ["propose", "validation", "design", "implement", "code_review", "evaluate", "review", "archive"]
 
 # 编号格式
 ID_PATTERN = re.compile(r"^f(\d{3})_(.+)$")

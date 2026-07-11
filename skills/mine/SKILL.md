@@ -52,10 +52,10 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 - 状态写入口（唯一）：`uv run python tools/state.py {init|show|next-id|set-stage|set|record-event|resolve|list} ...`
 - 门禁判定：`uv run python tools/check_gates.py <id> --stage <stage> [--assert-done] [--record]`
 - 沉淀辅助：`uv run python tools/factor_archiver.py {approve|reject|failure|lesson-update} <id> ...`
-- 5 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-validator` / `factor-coder` / `factor-evaluator` / `factor-archivist`
+- 6 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-validator` / `factor-coder` / `factor-code-reviewer` / `factor-evaluator` / `factor-archivist`
 
 **STAGE_ORDER（写死在 tools/state.py，不得改名）**：
-`propose → validation → design → implement → evaluate → review → archive`
+`propose → validation → design → implement → code_review → evaluate → review → archive`
 
 | 当前 stage | 前置断言的 prev | 出口门禁 |
 |-----------|----------------|---------|
@@ -63,7 +63,8 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 | validation | propose | G-VD |
 | design | validation | G-DS |
 | implement | design | G-IM |
-| evaluate | implement | G-EV |
+| code_review | implement | G-CR |
+| evaluate | code_review | G-EV |
 | review | evaluate | G-RV |
 | archive | review | G-AR |
 
@@ -107,7 +108,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 
 - 有 `id`：先 resolve（见三节头部）再 `uv run python tools/state.py show <完整id>`。
 - 无 `id`：`ls workspace/` 列出全部 factor_id，对每个跑一次 `state.py show` 摘要，**按编号排序制表呈现**：`编号 | factor_id | 方向 | 状态 | 当前 stage`。
-- **呈现约定**：show 原始输出之外，用中文进度摘要转述——7 阶段用人话（提出候选→验证方案→设计公式→实现回测→全量评估→自动决策→入库沉淀），标注当前所处位置与完成比例；门禁/意见代号（G-XX）只括注不打头，正文讲清楚它是什么检查、结论如何。
+- **呈现约定**：show 原始输出之外，用中文进度摘要转述——8 阶段用人话（提出候选→验证方案→设计公式→实现代码→代码审查→全量评估→自动决策→入库沉淀），标注当前所处位置与完成比例；门禁/意见代号（G-XX）只括注不打头，正文讲清楚它是什么检查、结论如何。
 
 ### 3.4 `accept <id>`（手动确认通过，通常由自动决策触发）
 

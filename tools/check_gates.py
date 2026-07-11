@@ -224,6 +224,53 @@ def gate_validation(workspace_root: Path, factor_id: str) -> list[tuple[str, boo
     return checks
 
 
+def gate_code_review(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, str]]:
+    """code_review 阶段：code_review_result.md 存在 + verdict ∈ {pass, fail}。"""
+    review_dir = workspace_root / factor_id / "review"
+    cr = review_dir / "code_review_result.md"
+
+    checks: list[tuple[str, bool, str]] = []
+
+    # G-CR-1 code_review_result.md 存在
+    checks.append((
+        "G-CR-1 code_review_result.md 存在",
+        file_exists_min_size(cr),
+        str(cr),
+    ))
+
+    # G-CR-2 verdict ∈ {pass, fail}
+    verdict = None
+    if cr.is_file():
+        text = cr.read_text(encoding="utf-8")
+        # 提取 verdict: pass / fail
+        m = re.search(r"verdict:\s*(pass|fail)", text, re.IGNORECASE)
+        if m:
+            verdict = m.group(1).lower()
+    checks.append((
+        "G-CR-2 verdict ∈ {pass, fail}",
+        verdict in ("pass", "fail"),
+        f"verdict={verdict}",
+    ))
+
+    # G-CR-3 若 fail，issues 列表非空
+    if verdict == "fail" and cr.is_file():
+        text = cr.read_text(encoding="utf-8")
+        has_issues = "issues:" in text.lower() and "- [" in text
+        checks.append((
+            "G-CR-3 若 fail，issues 列表非空",
+            has_issues,
+            "issues found" if has_issues else "no issues",
+        ))
+    else:
+        checks.append((
+            "G-CR-3 若 fail，issues 列表非空",
+            True,  # pass 时跳过此检查
+            "verdict=pass, skip",
+        ))
+
+    return checks
+
+
 def _yaml_parseable(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -536,6 +583,7 @@ def run_gate(workspace_root: Path, factor_id: str, stage: str, record: bool = Fa
         "validation": gate_validation,
         "design": gate_design,
         "implement": gate_implement,
+        "code_review": gate_code_review,
         "evaluate": gate_evaluate,
         "review": gate_review,
         "archive": gate_archive,
