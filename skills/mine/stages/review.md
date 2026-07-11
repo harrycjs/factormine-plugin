@@ -40,6 +40,16 @@ review 是**自动决策点**，不派 agent。主会话做四件事：
 3. **不停顿询问**：直接推进到下一轮的 propose 阶段
 4. **打印迭代摘要**：当前轮次结果、下一轮编号、剩余轮次
 
+### 反向显著处理（reverse_pass，停顿询问）
+
+当 `evaluate_result.json` 的 verdict = `reverse_pass` 时：
+1. **调用解释 agent**：派 `factor-explainer` 分析反方向显著的可能原因
+2. **停顿询问用户**：把解释报告 + 评估结果呈现给用户，询问是否接受反向结果
+3. **用户决策**：
+   - 若用户接受 → 执行 accept 流程（但方向改为反向）
+   - 若用户拒绝 → 执行 reject 流程，自动开下一轮
+4. **不停顿询问**：直接推进到下一轮的 propose 阶段
+
 ## 自动 Accept 执行
 
 当 verdict = pass 时，主会话自动执行：
@@ -71,6 +81,51 @@ review 是**自动决策点**，不派 agent。主会话做四件事：
    已入库到：library/approved/{id}/
    无需继续迭代，已找到有效因子。
    ```
+
+## 反向显著处理执行（reverse_pass）
+
+当 verdict = reverse_pass 时，主会话执行：
+
+1. **记录决策**：写入 `workspace/{id}/review_decision.md`
+   ```markdown
+   # Review Decision
+   - verdict: reverse_pass
+   - decision: awaiting_user_decision
+   - reason: 设计方向为正，但实际 IC 均值显著为负，需要用户决策
+   - designed_direction: {设计方向}
+   - actual_ic_mean: {实际IC均值}
+   - timestamp: <自动填充>
+   ```
+
+2. **派 factor-explainer 分析原因**：
+   - 输入：proposal + metrics.json + eval_summary.md + param_card.yaml
+   - 输出：`workspace/{id}/review/explanation_result.md`
+
+3. **呈现给用户**：
+   - 设计方向 vs 实际方向的对比
+   - 核心指标（|RankIC|、ICIR、多空年化、OOS 衰减）
+   - 解释报告的核心结论（为什么方向相反）
+   - 风险提示（使用反向结果的潜在风险）
+   - **询问用户**：
+     ```
+     因子 {id} 设计方向为 {设计方向}，但实际 IC 均值为 {IC均值}（显著为负）。
+     
+     可能的原因：
+     1. {原因1}
+     2. {原因2}
+     
+     核心指标（反向）：|RankIC|={|IC均值|:.4f}, ICIR={|ICIR|:.2f}, 多空年化={多空年化:.1%}
+     
+     是否接受反向结果入库？
+     - 接受：入库到 library/approved/{id}/（方向标记为反向）
+     - 拒绝：自动开下一轮，继续迭代
+     ```
+
+4. **等待用户决策**：使用 `AskUserQuestion` 工具询问用户
+
+5. **根据用户决策执行**：
+   - **用户接受**：执行 accept 流程（方向标记为反向）
+   - **用户拒绝**：执行 reject 流程，自动开下一轮
 
 ## 自动 Reject 执行
 
@@ -122,8 +177,9 @@ review 是**自动决策点**，不派 agent。主会话做四件事：
 | G-RV-3 | 决策时间戳存在 |
 | G-RV-4 | **accept 时**：archive 阶段已完成，状态为 `done` |
 | G-RV-5 | **reject 时**：archive 阶段已完成，状态为 `done_rejected`，且 next-iteration 已调用 |
+| G-RV-6 | **reverse_pass 时**：explanation_result.md 存在，且已询问用户决策 |
 
-review 阶段的 G-RV 是**记账 + 自动推进**，不阻断流程。
+review 阶段的 G-RV 是**记账 + 自动推进**，不阻断流程。reverse_pass 时会停顿等待用户决策。
 
 ## 兜圈断路器
 

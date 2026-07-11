@@ -65,7 +65,12 @@ color: green
 - `metrics.json`（**机器可读全部指标**，门禁重算的唯一来源）
 
 `workspace/{id}/`：
-- `evaluate_result.json`（**唯一判定文件**，verdict ∈ {pass, partial, fail}，由 metrics.json + standards.json 重算得出）
+- `evaluate_result.json`（**唯一判定文件**，verdict ∈ {pass, partial, fail, reverse_pass}，由 metrics.json + standards.json 重算得出）
+  - 若 verdict = reverse_pass，必须包含：
+    - `designed_direction`: 设计方向（long_positive / long_negative）
+    - `actual_ic_mean`: 实际 IC 均值
+    - `direction_reversed`: true
+    - `reason`: 方向相反的简要说明
 
 ## 硬约束
 
@@ -80,6 +85,18 @@ color: green
 - **pass**：核心门槛（|RankIC 均值| ≥ 0.025 / ICIR ≥ 0.5 / 多空年化 ≥ 8% / OOS 衰减 ≤ 50%）**全部达标**
 - **partial**：4 项核心中 ≤1 项未达标且未达标项**不是 OOS**（OOS 未达标一律降级为 fail）
 - **fail**：≥2 项核心未达标，或 OOS 显著失效（< 30%）
+- **reverse_pass**（**特殊判定**）：设计方向为正，但实际 IC 均值显著为负（|IC均值| ≥ 0.025 且 IC 均值 < -0.025），且其他指标达标 → 标记为 `reverse_pass`，需要调用解释 agent 分析原因
+
+## 反向显著处理（特殊流程）
+
+当评估发现**设计方向为正但 IC 均值显著为负**时：
+
+1. **标记为 reverse_pass**：在 `evaluate_result.json` 中设置 `verdict: "reverse_pass"` + `direction_reversed: true`
+2. **记录具体数值**：
+   - 设计方向：从 proposal 读取
+   - 实际 IC 均值：从 metrics.json 读取
+   - 方向差异：设计 vs 实际
+3. **不自动决策**：reverse_pass 不触发自动 accept/reject，而是停下来等待用户决策
 
 ## 完成报告格式
 
@@ -92,6 +109,7 @@ color: green
 - [ ] oos_comparison.json 存在且 OOS 期 ≥ 24 个月
 - [ ] evaluate_result.json 的 verdict ∈ {pass, partial, fail}
 - [ ] **因子方向正确处理**：根据 direction.json 或 proposal 中的方向声明，IC 计算和分组逻辑正确（反向因子已翻转符号）
+- [ ] **反向显著检查**：若设计方向为正但 IC 均值显著为负（< -0.025），verdict 设置为 reverse_pass 并记录详细信息
 - [ ] **双向因子两套图输出**：若为 `long_short_both`，正向和反向图都已输出（正向用原名，反向加 `_reversed` 后缀）
 - [ ] **eval_summary.md 明确标注主方向**：双向因子需说明哪个方向更优
 - [ ] **未宣布 accept/reject**（这是用户的权力）

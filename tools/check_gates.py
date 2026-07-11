@@ -285,7 +285,7 @@ def _yaml_parseable(path: Path) -> bool:
 
 
 def gate_design(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, str]]:
-    """design 阶段：algorithm_spec.md 五章节 + 未来函数三查勾选 + ≥3 单元测试用例。"""
+    """design 阶段：algorithm_spec.md 七章节 + 未来函数三查勾选 + ≥3 单元测试用例 + 去极值 + 市值中性化。"""
     spec_dir = workspace_root / factor_id / "spec"
     p = spec_dir / "algorithm_spec.md"
 
@@ -297,10 +297,10 @@ def gate_design(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, s
     ))
 
     text = p.read_text(encoding="utf-8") if p.is_file() else ""
-    sections = ["变量定义表", "伪代码", "未来函数", "NaN", "单元测试"]
+    sections = ["变量定义表", "伪代码", "未来函数", "NaN", "单元测试", "去极值", "市值中性化"]
     missing = [s for s in sections if s not in text]
     checks.append((
-        "G-DS-2 含五章节",
+        "G-DS-2 含七章节",
         not missing,
         f"missing={missing}" if missing else "ok",
     ))
@@ -337,6 +337,22 @@ def gate_design(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, s
         "G-DS-5 common 函数全部存在",
         not missing_funcs,
         f"missing={missing_funcs}" if missing_funcs else "ok",
+    ))
+
+    # G-DS-6 去极值方法明确指定为 MAD
+    has_mad = "MAD" in text or "Median Absolute Deviation" in text
+    checks.append((
+        "G-DS-6 去极值方法指定为 MAD",
+        has_mad,
+        "MAD found" if has_mad else "MAD not found",
+    ))
+
+    # G-DS-7 市值中性化方法明确指定
+    has_neutralization = ("市值中性化" in text or "market_cap" in text.lower() or "对数市值" in text)
+    checks.append((
+        "G-DS-7 市值中性化方法明确指定",
+        has_neutralization,
+        "neutralization found" if has_neutralization else "neutralization not found",
     ))
 
     return checks
@@ -471,8 +487,8 @@ def gate_evaluate(workspace_root: Path, factor_id: str) -> list[tuple[str, bool,
         except Exception:
             pass
     checks.append((
-        "G-EV-5 evaluate_result.json verdict ∈ {pass,partial,fail}",
-        verdict in ("pass", "partial", "fail"),
+        "G-EV-5 evaluate_result.json verdict ∈ {pass,partial,fail,reverse_pass}",
+        verdict in ("pass", "partial", "fail", "reverse_pass"),
         f"verdict={verdict}",
     ))
 
@@ -529,6 +545,21 @@ def gate_review(workspace_root: Path, factor_id: str) -> list[tuple[str, bool, s
         ))
     else:
         checks.append(("G-RV-3 决策时间戳", False, "review_decision.md 缺失"))
+
+    # G-RV-6 reverse_pass 时 explanation_result.md 存在
+    if er.is_file():
+        try:
+            data = json.loads(er.read_text(encoding="utf-8"))
+            verdict = data.get("verdict")
+            if verdict == "reverse_pass":
+                explanation = workspace_root / factor_id / "review" / "explanation_result.md"
+                checks.append((
+                    "G-RV-6 reverse_pass 时 explanation_result.md 存在",
+                    file_exists_min_size(explanation),
+                    str(explanation),
+                ))
+        except Exception:
+            pass
 
     return checks
 

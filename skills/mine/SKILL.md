@@ -52,7 +52,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 - 状态写入口（唯一）：`uv run python tools/state.py {init|show|next-id|set-stage|set|record-event|resolve|list} ...`
 - 门禁判定：`uv run python tools/check_gates.py <id> --stage <stage> [--assert-done] [--record]`
 - 沉淀辅助：`uv run python tools/factor_archiver.py {approve|reject|failure|lesson-update} <id> ...`
-- 6 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-validator` / `factor-coder` / `factor-code-reviewer` / `factor-evaluator` / `factor-archivist`
+- 7 个子 agent（`Agent` 工具）：`factor-proposer` / `factor-validator` / `factor-coder` / `factor-code-reviewer` / `factor-evaluator` / `factor-explainer` / `factor-archivist`
 
 **STAGE_ORDER（写死在 tools/state.py，不得改名）**：
 `propose → validation → design → implement → code_review → evaluate → review → archive`
@@ -259,6 +259,7 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 | pass | **auto_accept** | 入库到 `library/approved/` | ✅ **停止**，告诉用户已找到有效因子 |
 | partial | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
 | fail | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
+| reverse_pass | **等待用户决策** | 调用解释 agent 分析原因 → 询问用户是否接受反向结果 | ⏸️ **停顿**，等待用户决策 |
 
 ### 8.2 自动 Accept 流程（verdict = pass）
 
