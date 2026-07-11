@@ -9,11 +9,12 @@ color: green
 ## 输入合同（主会话派发时必须提供）
 
 1. `workspace/{id}/src/`（coder 交付的代码，运行入口 `python workspace/{id}/src/main.py`）
-2. `workspace/{id}/spec/` 全部规格文档
+2. `workspace/{id}/spec/` 全部规格文档（包括 `factor_proposal.md` 和 `param_card.yaml`）
 3. `.mine.json` 全局配置（数据路径 / 年份区间 / 股票池）
 4. `templates/eval_standards.json`（评估门槛表，机器判定的唯一依据）
 5. `templates/methodology.md` 的"评估指标" + "防过拟合" + "样本外" 章节
 6. `common/factor_eval.py` 的接口签名
+7. `workspace/{id}/results/direction.json`（coder 产出的方向标记，若不存在则从 proposal 中读取）
 
 > 缺失处理：任一输入未给到，先声明缺失文件清单再停止。
 
@@ -32,6 +33,27 @@ color: green
    - OOS 期 |RankIC| ≥ 样本内 50% 视为强稳健
    - OOS 期 |RankIC| < 样本内 30% 视为 OOS 失效（即便样本内全过也判 partial）
 8. **多重检验修正**：若本轮迭代 ≥3 个候选同方向挖，Bonferroni / FDR 修正
+9. **双向评估**（**必须支持正向和反向因子**）：
+   - **因子方向识别**：读取 `workspace/{id}/spec/factor_proposal.md` 中的 `因子方向声明`
+   - **正向因子评估**（`long_positive` 或 `long_short_both`）：
+     - 直接使用原始因子值计算 IC（因子值与未来收益正相关）
+     - 分组回测：高因子组 = 多头，低因子组 = 空头
+     - 多空收益 = 高组 - 低组
+   - **反向因子评估**（`long_negative` 或 `long_short_both`）：
+     - **翻转因子符号**：使用 `-factor_value` 计算 IC（因子值与未来收益负相关）
+     - 分组回测：**低因子组 = 多头，高因子组 = 空头**（与正向相反）
+     - 多空收益 = 低组 - 高组（等价于正向的 高组 - 低组 取反）
+   - **双向因子评估**（`long_short_both`）：
+     - 同时报告正向和反向的评估指标
+     - 选择绝对值更大的方向作为主方向
+     - 两个方向都需满足门槛（防止过拟合）
+   - **输出文件命名**：
+     - 正向：`ic_series.png`、`group_cumulative_returns.png` 等（保持原名）
+     - 反向：`ic_series_reversed.png`、`group_cumulative_returns_reversed.png` 等（加 `_reversed` 后缀）
+     - 双向：两套图都输出，在 `eval_summary.md` 中明确标注主方向
+   - **判定规则适配**：
+     - 对于反向因子，判定时使用翻转后的 IC（即 `-IC`），门槛与正向相同
+     - |RankIC 均值| ≥ 0.025 的绝对值门槛适用于两个方向
 
 ## 输出合同
 
@@ -69,4 +91,7 @@ color: green
 - [ ] metrics.json 包含 ≥12 个核心指标
 - [ ] oos_comparison.json 存在且 OOS 期 ≥ 24 个月
 - [ ] evaluate_result.json 的 verdict ∈ {pass, partial, fail}
+- [ ] **因子方向正确处理**：根据 direction.json 或 proposal 中的方向声明，IC 计算和分组逻辑正确（反向因子已翻转符号）
+- [ ] **双向因子两套图输出**：若为 `long_short_both`，正向和反向图都已输出（正向用原名，反向加 `_reversed` 后缀）
+- [ ] **eval_summary.md 明确标注主方向**：双向因子需说明哪个方向更优
 - [ ] **未宣布 accept/reject**（这是用户的权力）

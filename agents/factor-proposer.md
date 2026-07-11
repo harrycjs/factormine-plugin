@@ -33,14 +33,26 @@ color: blue
    - **因子定义**：公式 / 操作符 / 数据依赖（按 data_catalog 字段名）
    - **直观假设**：为什么这个因子可能有效（行为金融 / 风险溢价 / 套利逻辑 / **跨域类比 / LLM 灵感**）
    - **预期方向**：因子值大 → 未来收益高 还是 低？
+   - **因子方向声明**（**必须明确选择**）：
+     - `long_positive`：因子值越大，预期未来收益越高（做多高因子组）
+     - `long_negative`：因子值越大，预期未来收益越低（做多低因子组）
+     - `long_short_both`：正向和反向都有经济含义，需双向评估
+   - **回测频率**（**必须明确指定**）：
+     - `monthly`：月度调仓（默认，适合中低频因子）
+     - `weekly`：周度调仓（适合高频因子）
+     - `daily`：日度调仓（适合极高频因子，需注意换手率约束）
+     - 频率选择依据：数据频率、因子衰减速度、交易成本约束
    - **分类标签**：`market / fundamental / hybrid`，`trend / reversal / quality / value / volatility / liquidity / 其他`
    - **数据可用性自检**：按 data_catalog 标注字段 status（available / derive / missing）
    - **失败教训逐条回避声明**：「本因子刻意回避了以下失败模式：...」——**逐条引用每一条失败条目的 ID**（如 f003 / f007 / f012），说明本因子如何回避。**不是摘要，不止 ≥3 条——必须全部覆盖**
    - **已知因子撞库声明（F-9）**：≥3 个最接近的已知因子（含 Alpha#X、Alphalens Name、国内经典名、学术异象名）+ 关键差异 + 创新点 + 本因子的根本性不同
    - **可行性自查清单 F-1 ~ F-9**：9 项必须**全部勾选**
    - **与已入库因子的差异声明**
-2. `workspace/{id}/spec/design_notes.md`——设计要点（计算复杂度 / 滚动窗口长度 / 中性化方案 / 频率）
-3. `workspace/{id}/spec/param_card.yaml`——参数卡（YAML 格式，所有数值参数化）
+2. `workspace/{id}/spec/design_notes.md`——设计要点（计算复杂度 / 滚动窗口长度 / 中性化方案 / 频率选择理由 / 预期换手率）
+3. `workspace/{id}/spec/param_card.yaml`——参数卡（YAML 格式，所有数值参数化，必须包含以下字段）：
+   - `rebalance_frequency`：回测频率（`monthly` / `weekly` / `daily`，默认 `monthly`）
+   - `factor_direction`：因子方向（`long_positive` / `long_negative` / `long_short_both`）
+   - 其他数值参数（滚动窗口、窗口长度、阈值等）
 
 ## 硬约束
 
@@ -64,8 +76,11 @@ color: blue
 - [ ] **F-9 撞库声明**：列出 ≥3 个最接近的已知因子 + 关键差异 + 创新点
 - [ ] 因子公式中数据字段全部在 data_catalog 标注 status
 - [ ] 预期方向（值大→收益高/低）已明确
+- [ ] **因子方向声明已明确**：`long_positive` / `long_negative` / `long_short_both` 三选一
+- [ ] **回测频率已明确**：`monthly` / `weekly` / `daily` 三选一，并说明选择依据
 - [ ] 分类标签已给出
 - [ ] 与已入库因子 INDEX 比对，无显著雷同
 - [ ] 参数已全部进 param_card.yaml（无遗漏数值）
+- [ ] **param_card.yaml 包含必要字段**：`rebalance_frequency` 和 `factor_direction`
 - [ ] **可行性自查 F-1 ~ F-9 九项全部勾选**（重点！否则主会话驳回）
 - [ ] **因子是自由设计且非已知**（不依赖白名单套用，不复刻任何已知因子）

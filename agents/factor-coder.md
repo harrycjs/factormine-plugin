@@ -27,8 +27,13 @@ color: yellow
    - 加载数据（用 common/data_loader）
    - 算因子（调 factor.py）
    - 预处理（winsorize → standardize → 中性化，调用 common/factor_utils）
-   - 算 forward_return（T+1 ~ T+21 月度收益）
+   - **读取因子方向**：从 `workspace/{id}/spec/factor_proposal.md` 解析 `因子方向声明`
+   - **根据方向处理因子值**：
+     - 若为 `long_negative`：将因子值取反（`factor_value = -factor_value`）
+     - 若为 `long_short_both`：保留原始因子值，但在评估时分别计算正向和反向指标
+   - 算 forward_return（T+1 ~ T+21 月度收益，频率由 param_card.yaml 的 `rebalance_frequency` 决定）
    - 调用 common/factor_eval 出 IC/分组/多空/换手
+   - **输出方向标记**：在 `results/direction.json` 中记录因子方向（便于 evaluator 识别）
    - 出图（5 张标准图）+ Excel（factor_eval.xlsx）
 4. `workspace/{id}/src/_smoke.py`——单元测试脚本，跑 algorithm_spec.md 给的 ≥3 个手工用例
 
@@ -52,6 +57,25 @@ color: yellow
 6. **不读 / 写 `workspace/{id}/state.json`**
 7. **不宣布"因子有效 / 通过"**——Coder 不评估，只确保代码可执行
 8. 代码风格：Python 3.10+、type hints 完整、函数式 / 向量化优先（`groupby / rolling / merge / shift` 方法链替代显式 for）
+9. **性能优化要求**（**必须遵守**）：
+   - **向量化优先**：禁止使用 Python 显式 for 循环遍历股票/日期，必须使用 pandas/numpy 向量化操作（`groupby().transform()`、`rolling()`、`apply()` 等）
+   - **内存优化**：
+     - 大数据集分块处理：单只股票或单个月份分块计算，避免一次性加载全部数据到内存
+     - 及时释放中间变量：使用 `del` 删除不再需要的大 DataFrame，或用函数封装局部变量
+     - 使用 `float32` 替代 `float64`（精度足够时），内存占用减半
+     - 避免不必要的数据复制：使用 `inplace=True` 或原地操作
+   - **计算效率**：
+     - 避免重复计算：中间结果缓存复用
+     - 优先使用 pandas 内置函数（`pandas.merge` 优于 `pd.concat` + 循环）
+     - 滚动窗口计算优先使用 `rolling().apply()` 而非自定义循环
+     - 截面标准化优先使用 `groupby().transform()` 而非逐组循环
+   - **资源监控**：
+     - main.py 执行前打印内存使用基线
+     - 计算过程中关键节点打印内存峰值
+     - 若预估数据量超过内存 50%，主动采用分块策略
+   - **错误处理**：
+     - 捕获 `MemoryError` 并给出明确提示（建议减小数据范围或增加分块粒度）
+     - 捕获 `FloatingPointError` 并处理 NaN/Inf 边界情况
 
 ## 完成报告格式
 
@@ -65,3 +89,14 @@ color: yellow
 - [ ] `python -m compileall src/` 无错
 - [ ] main.py 能 import（但**未跑完整 main.py**）
 - [ ] **未宣布任何指标结论**
+- [ ] **性能优化检查**：
+  - [ ] 无 Python 显式 for 循环遍历股票/日期（全部向量化）
+  - [ ] 大数据集采用分块处理策略
+  - [ ] 使用 float32 替代 float64（精度允许时）
+  - [ ] 中间变量及时释放（del 或函数封装）
+  - [ ] 避免不必要的数据复制
+- [ ] **因子方向处理检查**：
+  - [ ] 从 proposal 读取因子方向声明
+  - [ ] 若为 `long_negative`，main.py 中因子值已取反
+  - [ ] `results/direction.json` 已生成并记录方向信息
+  - [ ] param_card.yaml 包含 `rebalance_frequency` 和 `factor_direction` 字段
