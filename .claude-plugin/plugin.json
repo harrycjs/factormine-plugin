@@ -1,7 +1,7 @@
 {
   "name": "factormine-plugin",
-  "version": "0.4.2",
-  "description": "本地个股 alpha 因子迭代挖掘流水线：单因子多轮迭代 + 全量评估 + 失败教训沉淀 + 人工审查入因子库 + 自动开下一轮（迭代轮数可配）。/mine 编排 + 4 子 agent + 34 门禁 + 撞库闸门 F-9。",
+  "version": "0.5.0",
+  "description": "本地个股 alpha 因子迭代挖掘流水线：单因子多轮迭代 + 全量评估 + 失败教训沉淀 + 人工审查入因子库 + 自动开下一轮（迭代轮数可配）。/mine 编排 + 4 子 agent + 34 门禁 + 撞库闸门 F-9。支持性能优化、因子方向声明、双向评估。",
   "author": {
     "name": "harrycjs"
   }
