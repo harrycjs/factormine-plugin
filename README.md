@@ -16,9 +16,11 @@
 ## 安装
 
 ```bash
-# 在 Claude Code 中：注册插件源 → 安装
-/plugin marketplace add <repo-url>
-/plugin install factormine-plugin
+# 第一步：注册插件源（marketplace 名 = factormine，源自 .claude-plugin/marketplace.json）
+/plugin marketplace add https://github.com/harrycjs/factormine-plugin
+
+# 第二步：安装（语法：<plugin>@<marketplace>）
+/plugin install factormine-plugin@factormine
 
 # 首次使用：交互式配置数据路径 / 股票池 / 年份区间 / 默认方向 / 迭代轮数
 /mine setup
