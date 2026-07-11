@@ -1,0 +1,7 @@
+# workspace：每次挖因子的工作区
+# 每次 `/mine new` 由 state.py init 自动创建子目录，存放：
+# - state.json（状态）
+# - spec/（规格：factor_proposal / algorithm_spec / param_card）
+# - src/（实现：factor / config / main / _smoke）
+# - results/（评估产物：5 张图 + xlsx + metrics.json）
+# - audit/（门禁记录）

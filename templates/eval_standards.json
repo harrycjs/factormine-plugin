@@ -1,0 +1,37 @@
+{
+  "_comment": "因子评估门槛（机器唯一判定依据）。verdict 规则：pass = 核心 4 项全过；partial = 4 项中 ≤1 项未达标且非 OOS；fail = ≥2 项未达标 或 OOS 显著失效。",
+  "version": "0.1.0",
+  "core_thresholds": {
+    "abs_rank_ic_mean": 0.025,
+    "icir": 0.5,
+    "ls_annual_return": 0.08,
+    "oos_decay_ratio": 0.5
+  },
+  "secondary_thresholds": {
+    "ic_win_rate": 0.55,
+    "ls_sharpe": 0.8,
+    "ls_max_drawdown": 0.20,
+    "monthly_turnover": 0.80,
+    "param_sensitivity_decay": 0.50
+  },
+  "oos_failure_threshold": 0.30,
+  "evaluation_periods_per_year": 12,
+  "transaction_cost": 0.003,
+  "n_groups": 5,
+  "oos_fraction": 0.20,
+  "minimum_oos_months": 24,
+  "multiple_testing_correction": "bonferroni",
+  "required_charts": [
+    "ic_series.png",
+    "ic_distribution.png",
+    "group_cumulative_returns.png",
+    "group_returns_bar.png",
+    "net_value_comparison.png"
+  ],
+  "required_excel": "factor_eval.xlsx",
+  "_verdict_rules": {
+    "pass": "core_thresholds 全部达标",
+    "partial": "core_thresholds 中 ≤1 项未达标，且未达标项 ≠ oos_decay_ratio",
+    "fail": "core_thresholds 中 ≥2 项未达标，或 oos_decay_ratio < oos_failure_threshold"
+  }
+}

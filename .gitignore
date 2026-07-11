@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# uv
+.venv/
+uv.lock
+
+# 用户数据 / 状态（每个用户独立，不入 git）
+.mine.json
+.reproduce.json
+workspace/*/src/
+workspace/*/results/
+workspace/*/audit/
+
+# 本地数据（永远不入 git——已在外部数据目录）
+local_data/
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# codewiki 临时目录
+.codewiki/

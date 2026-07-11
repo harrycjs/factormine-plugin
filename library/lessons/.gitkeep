@@ -1,0 +1,8 @@
+# library：沉淀的因子库与失败库
+
+- approved/  通过人工审查的因子（README + config + factor.py 副本 + INDEX.md）
+- rejected/ 评估未达标但用户看了保留的因子
+- failures/ 失败案例档案（每次 reject 沉淀一份，按 failure_lessons_schema.md）
+- lessons/  教训与经验笔记
+  - failure_lessons.md  失败教训（每轮 reject append）
+  - success_notes.md    成功经验（每轮 accept append）
