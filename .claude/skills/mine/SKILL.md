@@ -29,7 +29,7 @@ argument-hint: "setup | new <方向> | continue <id> | status [id] | accept <id>
 
 **工具定位协议（双形态，会话内定位一次再复用）**：本插件可作为项目仓库直跑（形态 A），也可作为插件安装后在任意用户目录使用（形态 B）。
 
-**第 0 级（首选）**：本 skill 加载时系统提示中标注的 *Base directory for this skill*（形如 `<根>/skills/mine`），其**上两级目录即插件根/仓库根**。`MINE_TOOLS=<根>/tools`。此来源在两种形态下都成立。
+**第 0 级（首选）**：本 skill 加载时系统提示中标注的 *Base directory for this skill*（形如 `<根>/.claude/skills/mine`），其**上三级目录即插件根/仓库根**。`MINE_TOOLS=<根>/tools`。此来源在两种形态下都成立。
 
 **Bash 侧兜底（第 0 级信息缺失时按序）**：
 
@@ -192,7 +192,7 @@ evaluate 阶段**不输出任何 accept/reject 建议**——评估只判定指�
 
 propose 阶段有三层驳回闸门：
 
-1. **机器门禁 G-PR-1 ~ G-PR-8**（详见 `skills/mine/stages/propose.md`）：
+1. **机器门禁 G-PR-1 ~ G-PR-8**（详见 `.claude/skills/mine/stages/propose.md`）：
    - **G-PR-4**：失败教训**逐条 ID 引用**——主会话全量喂入失败库，proposer 必须**逐条引用**每一条失败条目 ID（如 `f003`/`f007`/`f012`），不允许摘要或只读部分。机器 grep 验证。
    - **G-PR-7**：F-1 ~ F-9 九项可行性自查（数据可得 / 无未来函数 / 计算可行 / 样本充足 / 数值稳定 / 解释清晰 / 与已入库不雷同 / 失败教训回避 / **已知因子撞库**）。
    - **G-PR-8**：F-9 已知因子撞库声明——≥3 个最接近的已知因子（含 Alpha#X、Alphalens Name、国内经典名、学术异象名）+ **关键差异** + 创新点声明。机器 grep 关键词命中。

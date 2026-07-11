@@ -1,21 +1,8 @@
 {
   "name": "factormine-plugin",
   "version": "0.4.0",
-  "description": "本地个股 alpha 因子迭代挖掘流水线：单因子多轮迭代 + 全量评估 + 失败教训沉淀 + 人工审查入因子库 + 自动开下一轮（迭代轮数可配）。配套 /mine 编排、4 子 agent、common 回测库、templates 方法论参考与失败库 schema。",
+  "description": "本地个股 alpha 因子迭代挖掘流水线：单因子多轮迭代 + 全量评估 + 失败教训沉淀 + 人工审查入因子库 + 自动开下一轮（迭代轮数可配）。/mine 编排 + 4 子 agent + 34 门禁 + 撞库闸门 F-9。",
   "author": {
-    "name": "factormine-plugin contributors"
-  },
-  "skills": [
-    {
-      "name": "mine",
-      "path": "skills/mine/SKILL.md",
-      "description": "挖因子主编排：setup / new / iterate / status / accept / reject / report 子命令；单轮状态机 propose → design → implement → evaluate → review → archive。"
-    }
-  ],
-  "agents": [
-    {"name": "factor-proposer",  "path": "agents/factor-proposer.md"},
-    {"name": "factor-coder",     "path": "agents/factor-coder.md"},
-    {"name": "factor-evaluator", "path": "agents/factor-evaluator.md"},
-    {"name": "factor-archivist", "path": "agents/factor-archivist.md"}
-  ]
+    "name": "harrycjs"
+  }
 }
