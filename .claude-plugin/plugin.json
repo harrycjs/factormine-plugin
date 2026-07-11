@@ -1,7 +1,7 @@
 {
   "name": "factormine-plugin",
-  "version": "0.7.0",
-  "description": "本地个股 alpha 因子迭代挖掘流水线：7阶段门禁状态机（propose→validation→design→implement→evaluate→review→archive）+ 自动决策（达标accept停止/不达标reject继续）+ 5子agent（含验证agent）+ 失败教训沉淀。/mine 编排。支持性能优化、因子方向声明、双向评估、回测频率选择（默认周频）。",
+  "version": "0.8.0",
+  "description": "本地个股 alpha 因子迭代挖掘流水线：8阶段门禁状态机（propose→validation→design→implement→code_review→evaluate→review→archive）+ 自动决策（达标accept停止/不达标reject继续）+ 6子agent（含验证+代码审查）+ 失败教训沉淀（禁止固定模板）。/mine 编排。支持性能优化、因子方向声明、双向评估、回测频率选择（默认周频）。",
   "author": {
     "name": "harrycjs"
   }
