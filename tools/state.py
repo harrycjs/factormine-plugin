@@ -61,7 +61,8 @@ DEFAULT_STATE: dict[str, Any] = {
     "events": [],                 # 时间戳事件流
     "created_at": None,
     "updated_at": None,
-    "iteration_count": 0,         # /mine iterate 计数（>3 强制 reject）
+    "iteration_count": 0,         # 同一方向下本轮数（达到 max_iterations 自动停下）
+    "max_iterations": 3,          # 迭代轮数上限（从 .mine.json 读，0=不自动迭代）
 }
 
 
@@ -274,6 +275,82 @@ def cmd_record_event(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 子命令：next-iteration（reject 后判断是否自动开新轮）
+# ---------------------------------------------------------------------------
+def cmd_next_iteration(args: argparse.Namespace) -> None:
+    """reject 后检查 iteration budget：
+    - 若 iteration_count < max_iterations：自动分配新 fNNN，方向沿用旧轮，count +1
+    - 若已达上限：返回 "exhausted"，主会话停下汇报
+    """
+    old_id = args.factor_id
+    old_state = read_state(old_id)
+
+    # 读 .mine.json 的 max_iterations（若缺省 3）
+    mine_json = Path.cwd() / ".mine.json"
+    if mine_json.is_file():
+        try:
+            mine = json.loads(mine_json.read_text(encoding="utf-8"))
+            max_iter = int(mine.get("max_iterations", 3))
+        except (json.JSONDecodeError, OSError, ValueError):
+            max_iter = 3
+    else:
+        max_iter = 3
+
+    current = old_state.get("iteration_count", 0)
+    direction = old_state.get("direction", "未指定方向")
+
+    if current + 1 >= max_iter and max_iter > 0:
+        # 已达上限，停下
+        print(f"EXHAUSTED|已用完 {max_iter} 轮迭代（{old_id} 是第 {current + 1} 轮）")
+        print(f"DIRECTION|{direction}")
+        sys.exit(10)
+    elif max_iter == 0:
+        # 用户设了 0 轮 → 完全不自动迭代
+        print(f"NO_AUTO|用户配置 max_iterations=0，每轮 reject 后停下")
+        print(f"DIRECTION|{direction}")
+        sys.exit(11)
+
+    # 分配新 id
+    workspace = get_workspace_root()
+    max_n = 0
+    for child in workspace.iterdir():
+        if not child.is_dir():
+            continue
+        m = ID_PATTERN.match(child.name)
+        if m:
+            n = int(m.group(1))
+            if n > max_n:
+                max_n = n
+    new_n = max_n + 1
+
+    # 沿用旧轮的 slug 后缀 + 方向，或主会话传新 slug
+    new_slug = args.slug or f"{old_state.get('slug', 'iter')}_iter{current + 2}"
+    new_slug = re.sub(r"[^a-zA-Z0-9_]+", "_", new_slug).strip("_").lower()
+    new_id = f"f{new_n:03d}_{new_slug}"
+
+    # 初始化新 state
+    new_state = dict(DEFAULT_STATE)
+    new_state["factor_id"] = new_id
+    new_state["slug"] = new_slug
+    new_state["direction"] = direction
+    new_state["status"] = "running"
+    new_state["current_stage"] = "propose"
+    new_state["stages"]["propose"] = "running"
+    new_state["iteration_count"] = current + 1
+    new_state["max_iterations"] = max_iter
+    new_state["created_at"] = datetime.now().isoformat(timespec="seconds")
+    new_state["events"].append({
+        "ts": new_state["created_at"],
+        "type": "init_via_iteration",
+        "from_factor": old_id,
+        "reason": "auto-iteration after reject",
+    })
+
+    write_state(new_id, new_state)
+    print(f"NEXT|{new_id}|{current + 2}/{max_iter}|{direction}")
+
+
+# ---------------------------------------------------------------------------
 # 子命令：list
 # ---------------------------------------------------------------------------
 def cmd_list(_: argparse.Namespace) -> None:
@@ -334,6 +411,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = sub.add_parser("list", help="列出全部 factor_id")
     p_list.set_defaults(func=cmd_list)
+
+    p_ni = sub.add_parser("next-iteration", help="reject 后判断是否自动开新轮")
+    p_ni.add_argument("factor_id")
+    p_ni.add_argument("--slug", default=None, help="新轮 slug（缺省沿用旧+iterN）")
+    p_ni.set_defaults(func=cmd_next_iteration)
 
     return p
 

@@ -10,7 +10,8 @@ setup_workspace.py — 首次使用配置向导（幂等可重跑）
         --pool 全A \
         --year-start 2016 \
         --year-end 2025 \
-        --default-direction 混合
+        --default-direction 混合 \
+        --max-iterations 3
 """
 
 from __future__ import annotations
@@ -24,7 +25,15 @@ from pathlib import Path
 from typing import Optional
 
 
-def setup(target: Path, data_root: str, pool: str, year_start: int, year_end: int, default_direction: str) -> None:
+def setup(
+    target: Path,
+    data_root: str,
+    pool: str,
+    year_start: int,
+    year_end: int,
+    default_direction: str,
+    max_iterations: int = 3,
+) -> None:
     target = target.resolve()
 
     # 1. 落地 .mine.json
@@ -35,10 +44,12 @@ def setup(target: Path, data_root: str, pool: str, year_start: int, year_end: in
         "year_start": year_start,
         "year_end": year_end,
         "default_direction": default_direction,
+        "max_iterations": max_iterations,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
     (target / ".mine.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[OK] 落地 .mine.json -> {target / '.mine.json'}")
+    print(f"     max_iterations = {max_iterations}（每方向自动迭代上限）")
 
     # 2. 目录树
     for sub in [
@@ -168,6 +179,7 @@ def main() -> None:
     p.add_argument("--year-start", type=int, required=True)
     p.add_argument("--year-end", type=int, required=True)
     p.add_argument("--default-direction", default="混合", choices=["行情", "财务", "混合"])
+    p.add_argument("--max-iterations", type=int, default=3, help="每方向自动迭代上限（0=不自动迭代；>0=达到上限自动停下）")
     args = p.parse_args()
 
     setup(
@@ -177,6 +189,7 @@ def main() -> None:
         year_start=args.year_start,
         year_end=args.year_end,
         default_direction=args.default_direction,
+        max_iterations=args.max_iterations,
     )
 
 

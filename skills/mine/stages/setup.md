@@ -9,6 +9,8 @@
 
 ## 第一批：AskUserQuestion（4 项）
 
+> ⚠️ AskUserQuestion 工具单次最多 4 个问题，所以分两批问。
+
 ```python
 AskUserQuestion(questions=[
     {
@@ -52,31 +54,57 @@ AskUserQuestion(questions=[
 ])
 ```
 
+## 第二批：AskUserQuestion（1 项：迭代轮数）
+
+```python
+AskUserQuestion(questions=[
+    {
+        "question": "迭代轮数上限（每轮 reject 后自动开下一轮，达到上限停下）",
+        "header": "迭代轮数",
+        "options": [
+            {"label": "0 轮（不自动迭代）", "description": "每轮 reject 后都停下，等人审再决定是否继续"},
+            {"label": "3 轮（默认）", "description": "每个方向自动迭代 3 轮，达到上限停下汇报"},
+            {"label": "5 轮", "description": "自动迭代 5 轮（适合较大方向）"},
+            {"label": "10 轮（深度挖）", "description": "自动迭代 10 轮（适合让 AI 大胆试错）"},
+        ],
+        "multi_select": False,
+    },
+])
+# 自由输入：用户选 Other 后可输入 0-100 的整数
+```
+
+**说明**：
+- 选 0：每次 reject 停下，等你 `/mine continue` 或改方向
+- 选 3/5/10：达到轮数上限后自动停下
+- 自由输入：可填 0-100 任意整数
+- 计数方式：每轮挖一个因子（无论 pass/partial/fail 都算 1 轮）；pass 后该因子入库，下轮可换新方向继续挖
+
 ## 落地（一次 Bash 调用，`&&` 串联全部记账）
 
 ```bash
 uv run python tools/setup_workspace.py \
   --target . \
-  --data-root "<用户答>" \
-  --pool "<全A|HS300|ZZ500|ZZ1000>" \
-  --year-start <start> \
-  --year-end <end> \
-  --default-direction "<行情|财务|混合>" \
-  && uv run python tools/check_gates.py --stage setup --record  # 首次也走门禁
+  --data-root "<Q1>" \
+  --pool "<Q2>" \
+  --year-start <Q3 start> \
+  --year-end <Q3 end> \
+  --default-direction "<Q4>" \
+  --max-iterations <Q5> \
+  && uv run python tools/check_gates.py --stage setup --record
 ```
 
 `setup_workspace.py` 职责：
-- 落地 `.mine.json`
+- 落地 `.mine.json`（含 `max_iterations` 字段）
 - 拷贝 `templates/` 到 cwd（用户可改）
 - 拷贝 `common/` 种子
 - 创建 `pyproject.toml`（若缺）
 - 创建目录树 `library/{approved,rejected,failures,lessons}/` + `workspace/`
-- **数据可用性自检**：扫 `--data-root`，列出 parquet 文件清单，更新 `templates/data_catalog.md` 草稿（用户后续维护）
+- **数据可用性自检**：扫 `--data-root`，列出 parquet 文件清单，更新 `templates/data_catalog.md` 草稿
 
 ## 输出合同
 
-- `.mine.json`（全局配置）
-- `templates/data_catalog.md`（草稿 + 自动列出的本地 parquet）
+- `.mine.json`（全局配置，含 max_iterations）
+- `templates/data_catalog.md`（草稿）
 - `library/{approved,rejected,failures,lessons}/` 全在
 - `workspace/` 在
 
@@ -84,9 +112,9 @@ uv run python tools/setup_workspace.py \
 
 | 编号 | 检查 |
 |------|------|
-| G-SU-1 | `.mine.json` 存在且字段齐 |
+| G-SU-1 | `.mine.json` 存在且字段齐（含 max_iterations） |
 | G-SU-2 | `templates/data_catalog.md` 存在 |
-| G-SU-3 | `library/lessons/failure_lessons.md` 在（首次创建空骨架） |
+| G-SU-3 | `library/lessons/failure_lessons.md` 在 |
 | G-SU-4 | 数据根目录下至少 1 个 ashare_stock_*.parquet 或 share_stock_*.parquet 存在 |
 
 ## 失败处理

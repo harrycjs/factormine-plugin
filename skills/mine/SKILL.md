@@ -115,6 +115,16 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 1. 派 `factor-archivist` 走 `reject` 分支：因子归档到 `library/rejected/{id}/` + 失败案例写入 `library/failures/{id}.md`（按 `failure_lessons_schema.md`） + **追加教训到 `library/lessons/failure_lessons.md`**（关键！下轮 propose 必读）。
 2. `set-stage archive done` → `set <id> status done_rejected`。
 3. 打印失败档案位置摘要。
+4. **自动开下一轮**（关键！）：
+   - 跑 `python tools/state.py next-iteration <id>`：
+     - 若 `EXHAUSTED|...` / `NO_AUTO|...` → 停下，提示用户换方向 / `/mine continue` / 改 `.mine.json` 的 `max_iterations`
+     - 若 `NEXT|<new_id>|<n>/<max>|<direction>` → 派新轮从 propose 开始，direction 自动沿用
+   - 新轮的 prompt 摘要里**必须附上一轮的失败 ID** + 让 proposer 主动基于教训微调
+
+### 3.5.1 `accept` 后也走 next-iteration 逻辑
+
+- accept 入库后，主会话同样跑 `state.py next-iteration <id>`，自动开新方向新轮
+- 计数规则：accept 也算 1 轮（达到上限后停下，让用户换方向）
 
 ### 3.6 `report <id>`
 

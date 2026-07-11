@@ -77,7 +77,7 @@ propose → design → implement → evaluate → review → archive
 
 | 子命令 | 作用 |
 |--------|------|
-| `/mine setup` | 首次使用：交互式收集数据路径、股票池、年份区间、默认因子方向；落地 `.mine.json` |
+| `/mine setup` | 首次使用：交互式收集数据路径、股票池、年份区间、默认因子方向、**迭代轮数**（自由输入 0~100，0=不自动迭代，默认 3）；落地 `.mine.json` |
 | `/mine new <方向>` | 起一轮新的因子挖掘（如 `/mine new 行情动量类`），从 `propose` 开始 |
 | `/mine continue <id>` | 断点续跑（按 state.json 当前 stage 推进） |
 | `/mine status [id]` | 列全部轮次摘要（id / 方向 / 状态 / 当前 stage） |
