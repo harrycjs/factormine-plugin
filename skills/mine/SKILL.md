@@ -89,9 +89,12 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 
 1. `uv run python tools/state.py show <id>` 读态。
 2. 按 `status` 分派：
-   - `done` / `done_rejected`：报告已出，提示 `accept` / `reject` / `revise`；不再自动推进。
+   - `done` / `done_rejected`：报告已出，提示用户查看结果；**不再自动推进**（已找到因子或已耗尽轮次）。
    - `paused_blocked`：读 `pending_question`，用 `AskUserQuestion` 把候选解释与影响说明呈给用户；据答复解除阻塞后，执行 `uv run python tools/state.py set <id> status running` 写回 state 再继续推进。
-   - `awaiting_review`：评估完成等人工审查，提示 `accept` / `reject`；**不自行 accept / reject**。
+   - `awaiting_review`：评估完成，**自动执行 review 阶段的自动决策**（无需等待用户）：
+     - 读取 `evaluate_result.json` 的 verdict
+     - 若 verdict=pass → 自动 accept → 停止迭代
+     - 若 verdict=partial/fail → 自动 reject → 自动开下一轮
    - `running`：进入续跑（下一步）。
 3. 续跑定位：沿 STAGE_ORDER 找**第一个非 done/skipped** 的 stage 作为 `current`。
 4. **进入前幂等自愈**：对 `current` 跑 `check_gates --stage <current>`（默认模式全量重算）——若已 PASS（产物齐全且合规），直接 `set-stage <current> done` 跳过，前进到下一个；否则 `set-stage <current> running`（attempts 自增）按该 stage 执行卡重跑覆盖写。
@@ -102,14 +105,17 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 - 无 `id`：`ls workspace/` 列出全部 factor_id，对每个跑一次 `state.py show` 摘要，**按编号排序制表呈现**：`编号 | factor_id | 方向 | 状态 | 当前 stage`。
 - **呈现约定**：show 原始输出之外，用中文进度摘要转述——6 阶段用人话（提出候选→设计公式→实现回测→全量评估→人工审查→入库沉淀），标注当前所处位置与完成比例；门禁/意见代号（G-XX）只括注不打头，正文讲清楚它是什么检查、结论如何。
 
-### 3.4 `accept <id>`（人工审查通过）
+### 3.4 `accept <id>`（手动确认通过，通常由自动决策触发）
 
 详见 `stages/review.md`：
 1. 派 `factor-archivist` 走 `approve` 分支：因子归档到 `library/approved/{id}/`（md + parquet）+ 更新 `library/approved/INDEX.md` + 写入 `library/lessons/success_notes.md`（正向经验沉淀）。
 2. `set-stage archive done` → `set <id> status done`。
 3. 打印入库位置摘要。
+4. **停止迭代**：不再调用 `next-iteration`，告诉用户已找到有效因子。
 
-### 3.5 `reject <id> "<reason>"`（人工拒收）
+**注意**：通常情况下，`accept` 由 review 阶段的自动决策触发（verdict=pass 时自动 accept），无需用户手动执行 `/mine accept`。
+
+### 3.5 `reject <id> "<reason>"`（手动拒收，通常由自动决策触发）
 
 详见 `stages/review.md`：
 1. 派 `factor-archivist` 走 `reject` 分支：因子归档到 `library/rejected/{id}/` + 失败案例写入 `library/failures/{id}.md`（按 `failure_lessons_schema.md`） + **追加教训到 `library/lessons/failure_lessons.md`**（关键！下轮 propose 必读）。
@@ -121,10 +127,20 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
      - 若 `NEXT|<new_id>|<n>/<max>|<direction>` → 派新轮从 propose 开始，direction 自动沿用
    - 新轮的 prompt 摘要里**必须附上一轮的失败 ID** + 让 proposer 主动基于教训微调
 
-### 3.5.1 `accept` 后也走 next-iteration 逻辑
+**注意**：通常情况下，`reject` 由 review 阶段的自动决策触发（verdict=partial/fail 时自动 reject），无需用户手动执行 `/mine reject`。
 
-- accept 入库后，主会话同样跑 `state.py next-iteration <id>`，自动开新方向新轮
-- 计数规则：accept 也算 1 轮（达到上限后停下，让用户换方向）
+### 3.5.1 自动决策逻辑（review 阶段）
+
+**核心原则**：review 阶段**自动决策，无需人工干预**。
+
+- **verdict = pass**：自动 accept → **停止迭代** → 告诉用户已找到有效因子
+- **verdict = partial**：自动 reject → **自动开下一轮** → 继续迭代
+- **verdict = fail**：自动 reject → **自动开下一轮** → 继续迭代
+
+**用户可选覆盖**：
+- 如果用户想手动 accept 一个 partial/fail 的因子：`/mine accept <id>`（覆盖自动决策）
+- 如果用户想手动 reject 一个 pass 的因子：`/mine reject <id> "理由"`（覆盖自动决策）
+- **但通常不需要**：自动决策已是最优路径
 
 ### 3.6 `report <id>`
 
@@ -178,13 +194,47 @@ MINE_ROOT="$PWD" uv run python "$MINE_TOOLS/<x>.py" ...
 | OOS RankIC 衰减 | OOS 期 \|RankIC\| ≥ 样本内 50%（强稳健） |
 | 多重检验修正 | Bonferroni 修正后仍显著 |
 
-任一**核心门槛**（IC 均值 / ICIR / 多空年化 / OOS）不达标 → evaluate 阶段输出 `evaluate_result=fail` → review 阶段默认 reject（人工可覆盖）。
+任一**核心门槛**（IC 均值 / ICIR / 多空年化 / OOS）不达标 → evaluate 阶段输出 `evaluate_result=fail` → review 阶段**自动 reject 并开下一轮**（用户可手动覆盖）。
 
 ---
 
-## 七、人工审查闸门（最高优先级）
+## 七、自动决策逻辑（review 阶段）
 
-**`/mine accept` 与 `/mine reject` 是人工闸门**。任何驱动器（/goal、/loop、ralph-loop）都不得冲过；主会话**不得**自行 accept——只能由用户显式触发。
+**核心原则**：review 阶段**自动决策，无需人工干预**。
+
+### 7.1 自动决策规则
+
+| verdict | 自动决策 | 后续动作 | 是否停止迭代 |
+|---------|---------|---------|-------------|
+| pass | **auto_accept** | 入库到 `library/approved/` | ✅ **停止**，告诉用户已找到有效因子 |
+| partial | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
+| fail | **auto_reject** | 归档到 `library/rejected/` + 沉淀教训 | ❌ **继续**，自动开下一轮 |
+
+### 7.2 自动 Accept 流程（verdict = pass）
+
+1. 记录决策到 `workspace/{id}/review_decision.md`
+2. 派 `factor-archivist` 走 approve 分支（入库）
+3. 状态更新为 `done`
+4. **停止迭代**：不再调用 `next-iteration`
+5. 打印成功摘要，告诉用户"已找到有效因子，无需继续迭代"
+
+### 7.3 自动 Reject 流程（verdict = partial / fail）
+
+1. 记录决策到 `workspace/{id}/review_decision.md`
+2. 派 `factor-archivist` 走 reject 分支（归档 + 沉淀教训）
+3. 状态更新为 `done_rejected`
+4. **自动开下一轮**：调用 `state.py next-iteration <id>`
+5. 打印迭代摘要，直接推进到下一轮的 propose 阶段
+
+### 7.4 用户覆盖（可选）
+
+用户可以手动覆盖自动决策：
+- `/mine accept <id>`：手动 accept 一个 partial/fail 的因子（覆盖自动 reject）
+- `/mine reject <id> "理由"`：手动 reject 一个 pass 的因子（覆盖自动 accept）
+
+**但通常不需要**：自动决策已是最优路径。
+
+### 7.5 evaluate 阶段的职责
 
 evaluate 阶段**不输出任何 accept/reject 建议**——评估只判定指标是否达标，不替用户拍板。达标仅意味着"值得考虑入因子库"，不入因子库也要走 reject 分支并沉淀教训（让后人知道"看起来达标但实际不可用"也是一种教训）。
 
