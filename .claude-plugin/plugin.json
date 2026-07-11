@@ -1,8 +1,10 @@
 {
   "name": "factormine-plugin",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "本地个股 alpha 因子迭代挖掘流水线：单因子多轮迭代 + 全量评估 + 失败教训沉淀 + 人工审查入因子库 + 自动开下一轮（迭代轮数可配）。/mine 编排 + 4 子 agent + 34 门禁 + 撞库闸门 F-9。",
   "author": {
     "name": "harrycjs"
-  }
+  },
+  "skills": ["mine"],
+  "agents": ["factor-proposer", "factor-coder", "factor-evaluator", "factor-archivist"]
 }
